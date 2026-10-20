@@ -1,0 +1,44 @@
+=== Both services running (Order PID 59282, Inventory PID 59281) ===
+$ curl http://127.0.0.1:8001/inventory/apple/availability?quantity=2
+{"in_stock":10,"item_id":"apple","requested_quantity":2,"status":"available"}
+
+=== 1. Successful order (item in stock) ===
+$ curl -X POST http://127.0.0.1:8000/orders -H 'Content-Type: application/json' -d '{"item_id": "apple", "quantity": 2}'
+{"order":{"created_at":"2026-10-20T22:04:38.617707+00:00","item_id":"apple","order_id":1,"quantity":2,"status":"created"},"order_status":"created"}
+
+HTTP status: 201
+
+=== 2. Rejected order (item out of stock) ===
+$ curl -X POST http://127.0.0.1:8000/orders -H 'Content-Type: application/json' -d '{"item_id": "banana", "quantity": 1}'
+{"inventory":{"in_stock":0,"item_id":"banana","requested_quantity":1,"status":"unavailable"},"order_status":"rejected","reason":"Item 'banana' is unavailable"}
+
+HTTP status: 409
+
+=== 3. Failure test: stopping Inventory Service (PID 59281) ===
+$ curl -X POST http://127.0.0.1:8000/orders -H 'Content-Type: application/json' -d '{"item_id": "laptop", "quantity": 1}'
+{"error":"Inventory Service is unavailable. Please try again later.","order_status":"not_created"}
+
+HTTP status: 503
+
+=== 4. Order Service is still running after the failure ===
+$ curl http://127.0.0.1:8000/health
+{"service":"order","status":"ok"}
+
+HTTP status: 200
+
+$ curl http://127.0.0.1:8000/orders
+[{"created_at":"2026-10-20T22:04:38.617707+00:00","item_id":"apple","order_id":1,"quantity":2,"status":"created"}]
+
+=== Order Service log ===
+ * Serving Flask app 'app'
+ * Debug mode: off
+[2026-10-20 15:04:36,714] INFO WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:8000
+[2026-10-20 15:04:36,714] INFO Press CTRL+C to quit
+[2026-10-20 15:04:38,618] INFO EVENT OrderCreated: {'order_id': 1, 'item_id': 'apple', 'quantity': 2, 'status': 'created', 'created_at': '2026-10-20T22:04:38.617707+00:00'}
+[2026-10-20 15:04:38,618] INFO 127.0.0.1 - - [20/Oct/2026 15:04:38] "POST /orders HTTP/1.1" 201 -
+[2026-10-20 15:04:38,630] INFO 127.0.0.1 - - [20/Oct/2026 15:04:38] "POST /orders HTTP/1.1" 409 -
+[2026-10-20 15:04:39,662] ERROR Inventory Service call failed: HTTPConnectionPool(host='127.0.0.1', port=8001): Max retries exceeded with url: /inventory/laptop/availability?quantity=1 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8001): Failed to establish a new connection: [Errno 61] Connection refused"))
+[2026-10-20 15:04:39,662] INFO 127.0.0.1 - - [20/Oct/2026 15:04:39] "POST /orders HTTP/1.1" 503 -
+[2026-10-20 15:04:39,678] INFO 127.0.0.1 - - [20/Oct/2026 15:04:39] "GET /health HTTP/1.1" 200 -
+[2026-10-20 15:04:39,690] INFO 127.0.0.1 - - [20/Oct/2026 15:04:39] "GET /orders HTTP/1.1" 200 -
