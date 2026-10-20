@@ -22,7 +22,7 @@ design and is shown as an event consumer; the Order Service emits the
 Requires Python 3.9+.
 
 ```bash
-git clone <this-repo-url>
+git clone https://github.com/shruthikatta/cmpe273-module4-assignment.git
 cd cmpe273-module4-assignment
 python3 -m venv .venv
 source .venv/bin/activate
